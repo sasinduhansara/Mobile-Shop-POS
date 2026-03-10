@@ -1,0 +1,46 @@
+:root {
+  /* Typography */
+  --font-primary: 'Manrope', 'Segoe UI', sans-serif;
+
+  /* Global surfaces and text */
+  --color-bg-page: #f3f4f6;
+  --color-main-text: #111827;
+  --color-muted-text: #6b7280;
+  --color-surface: #ffffff;
+  --color-border: #d1d5db;
+
+  /* Header */
+  --color-header-bg: rgba(255, 255, 255, 0.9);
+  --color-header-border: #d1d5db;
+  --color-header-title: #111827;
+  --color-header-subtitle: #6b7280;
+  --color-menu-btn-border: #d1d5db;
+  --color-menu-btn-text: #374151;
+  --color-menu-btn-hover: #f3f4f6;
+
+  /* Header user profile */
+  --color-profile-bg: #ffffff;
+  --color-profile-border: #d1d5db;
+  --color-profile-text: #111827;
+  --color-profile-subtext: #6b7280;
+  --color-profile-avatar-bg: #e2e8f0;
+  --color-profile-avatar-text: #1e293b;
+
+  /* Sidebar */
+  --color-sidebar-bg: #111827;
+  --color-sidebar-border: #1f2937;
+  --color-sidebar-divider: rgba(255, 255, 255, 0.1);
+  --color-sidebar-overlay: rgba(15, 23, 42, 0.45);
+  --color-sidebar-text: #f9fafb;
+  --color-sidebar-muted: #d1d5db;
+  --color-sidebar-link-text: #d1d5db;
+  --color-sidebar-link-hover-bg: #1f2937;
+  --color-sidebar-link-hover-text: #ffffff;
+  --color-sidebar-link-active-bg: #374151;
+  --color-sidebar-link-active-text: #ffffff;
+  --color-sidebar-close-hover: #1f2937;
+
+  /* Accent */
+  --color-accent: #2563eb;
+  --color-on-accent: #ffffff;
+}
