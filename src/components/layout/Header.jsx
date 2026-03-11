@@ -2,9 +2,9 @@ import { ChevronDown, Menu } from 'lucide-react'
 
 function Header({ onMenuClick }) {
   return (
-    <header className="sticky top-0 z-30 border-b border-(--color-header-border) bg-(--color-header-bg) backdrop-blur">
-      <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center gap-3">
+    <header className="sticky top-0 z-30 w-full border-b border-(--color-header-border) bg-(--color-header-bg) backdrop-blur">
+      <div className="mx-auto flex h-16 w-full max-w-7xl min-w-0 items-center justify-between px-4 sm:px-6 lg:px-8">
+        <div className="flex min-w-0 items-center gap-3">
           <button
             type="button"
             onClick={onMenuClick}
@@ -25,7 +25,7 @@ function Header({ onMenuClick }) {
 
         <button
           type="button"
-          className="inline-flex items-center gap-3 rounded-xl border border-(--color-profile-border) bg-(--color-profile-bg) px-2.5 py-1.5 text-left hover:bg-(--color-menu-btn-hover)"
+          className="inline-flex shrink-0 items-center gap-3 rounded-xl border border-(--color-profile-border) bg-(--color-profile-bg) px-2.5 py-1.5 text-left hover:bg-(--color-menu-btn-hover)"
           aria-label="User profile"
         >
           <div className="grid h-9 w-9 place-items-center rounded-full bg-(--color-profile-avatar-bg) text-sm font-semibold text-(--color-profile-avatar-text)">
