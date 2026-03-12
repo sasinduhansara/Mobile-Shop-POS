@@ -528,7 +528,7 @@ function DashboardPage() {
           </div>
 
           <div className="mt-4 hidden overflow-x-auto sm:block">
-            <table className="w-full min-w-[560px] text-sm">
+            <table className="w-full min-w-140 text-sm">
               <thead>
                 <tr className="text-left text-xs uppercase tracking-[0.08em] text-(--color-muted-text)">
                   <th className="pb-2">Product</th>
@@ -629,7 +629,7 @@ function DashboardPage() {
           </ul>
 
           <div className="mt-4 hidden overflow-x-auto sm:block">
-            <table className="w-full min-w-[520px] text-sm">
+            <table className="w-full min-w-130 text-sm">
               <thead>
                 <tr className="text-left text-xs uppercase tracking-[0.08em] text-(--color-muted-text)">
                   <th className="pb-2">Job</th>

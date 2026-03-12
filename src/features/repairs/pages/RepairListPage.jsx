@@ -1203,7 +1203,7 @@ function RepairListPage() {
 
       <section className="rounded-2xl border border-(--color-border) bg-(--color-surface) p-4 shadow-sm">
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[1450px] text-sm">
+          <table className="w-full min-w-full text-sm">
             <thead>
               <tr className="text-left text-xs uppercase tracking-[0.08em] text-(--color-muted-text)">
                 <th className="pb-3">Repair ID / Ticket Number</th>
@@ -1238,7 +1238,7 @@ function RepairListPage() {
                     {repair.serialNumber}
                   </td>
                   <td className="py-3 align-top">
-                    <p className="max-w-[220px] text-sm text-(--color-main-text)">
+                    <p className="max-w-55 text-sm text-(--color-main-text)">
                       {repair.problemDescription}
                     </p>
                   </td>
@@ -1468,7 +1468,7 @@ function RepairListPage() {
           </div>
 
           <div className="mt-2 hidden overflow-x-auto sm:block">
-            <table className="w-full min-w-[620px] text-sm">
+            <table className="w-full min-w-full text-sm">
               <thead>
                 <tr className="text-left text-xs uppercase tracking-[0.08em] text-(--color-muted-text)">
                   <th className="pb-2">Date</th>
