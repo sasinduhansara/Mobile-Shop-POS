@@ -1,4 +1,5 @@
 import { ChevronDown, Menu } from 'lucide-react'
+import { Link } from 'react-router-dom'
 
 function Header({ onMenuClick }) {
   return (
@@ -23,8 +24,8 @@ function Header({ onMenuClick }) {
           </div>
         </div>
 
-        <button
-          type="button"
+        <Link
+          to="/profile"
           className="inline-flex shrink-0 items-center gap-3 rounded-xl border border-(--color-profile-border) bg-(--color-profile-bg) px-2.5 py-1.5 text-left hover:bg-(--color-menu-btn-hover)"
           aria-label="User profile"
         >
@@ -40,7 +41,7 @@ function Header({ onMenuClick }) {
           </div>
 
           <ChevronDown size={16} className="text-(--color-profile-subtext)" />
-        </button>
+        </Link>
       </div>
     </header>
   )

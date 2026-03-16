@@ -19,6 +19,7 @@ function POSPage() {
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedCategory, setSelectedCategory] = useState('All')
   const [cartItems, setCartItems] = useState([])
+  const [manualDiscount, setManualDiscount] = useState('')
   const [selectedPayment, setSelectedPayment] = useState('Cash')
   const [customerInfo, setCustomerInfo] = useState({
     name: '',
@@ -47,8 +48,11 @@ function POSPage() {
     [cartItems],
   )
 
-  const taxAmount = subtotal * 0.05
-  const total = subtotal + taxAmount
+  const parsedDiscount = Number(manualDiscount)
+  const discountAmount =
+    Number.isFinite(parsedDiscount) && parsedDiscount > 0 ? parsedDiscount : 0
+  const appliedDiscount = Math.min(discountAmount, subtotal)
+  const total = subtotal - appliedDiscount
 
   const addToCart = (product) => {
     setCartItems((prev) => {
@@ -110,7 +114,7 @@ function POSPage() {
       ),
       '',
       `Subtotal: ${currencyFormat(subtotal)}`,
-      `Tax (5%): ${currencyFormat(taxAmount)}`,
+      `Discount: -${currencyFormat(appliedDiscount)}`,
       `Total: ${currencyFormat(total)}`,
     ]
 
@@ -196,34 +200,6 @@ function POSPage() {
 
         <aside className="space-y-4">
           <article className="rounded-2xl border border-(--color-border) bg-(--color-surface) p-4 shadow-sm">
-            <h3 className="text-base font-semibold text-(--color-main-text)">Customer Info</h3>
-
-            <div className="mt-3 grid gap-3">
-              <label className="grid gap-1 text-sm font-medium text-(--color-main-text)">
-                Customer Name
-                <input
-                  name="name"
-                  value={customerInfo.name}
-                  onChange={onCustomerInfoChange}
-                  placeholder="Enter customer name"
-                  className="h-10 rounded-lg border border-(--color-border) px-3 text-sm text-(--color-main-text) outline-none focus:border-(--color-accent)"
-                />
-              </label>
-
-              <label className="grid gap-1 text-sm font-medium text-(--color-main-text)">
-                Phone Number
-                <input
-                  name="phone"
-                  value={customerInfo.phone}
-                  onChange={onCustomerInfoChange}
-                  placeholder="Enter phone number"
-                  className="h-10 rounded-lg border border-(--color-border) px-3 text-sm text-(--color-main-text) outline-none focus:border-(--color-accent)"
-                />
-              </label>
-            </div>
-          </article>
-
-          <article className="rounded-2xl border border-(--color-border) bg-(--color-surface) p-4 shadow-sm">
             <h3 className="text-base font-semibold text-(--color-main-text)">Cart</h3>
 
             <div className="mt-3 max-h-64 space-y-3 overflow-y-auto pr-1">
@@ -286,19 +262,58 @@ function POSPage() {
               Subtotal / Total
             </h3>
 
-            <div className="mt-3 space-y-2 text-sm">
+            <div className="mt-3 grid gap-3">
+              <label className="grid gap-1 text-sm font-medium text-(--color-main-text)">
+                Customer Name
+                <input
+                  name="name"
+                  value={customerInfo.name}
+                  onChange={onCustomerInfoChange}
+                  placeholder="Enter customer name"
+                  className="h-10 rounded-lg border border-(--color-border) px-3 text-sm text-(--color-main-text) outline-none focus:border-(--color-accent)"
+                />
+              </label>
+
+              <label className="grid gap-1 text-sm font-medium text-(--color-main-text)">
+                Phone Number
+                <input
+                  name="phone"
+                  value={customerInfo.phone}
+                  onChange={onCustomerInfoChange}
+                  placeholder="Enter phone number"
+                  className="h-10 rounded-lg border border-(--color-border) px-3 text-sm text-(--color-main-text) outline-none focus:border-(--color-accent)"
+                />
+              </label>
+            </div>
+
+            <div className="mt-3 space-y-3 text-sm">
               <div className="flex items-center justify-between">
                 <span className="text-(--color-muted-text)">Subtotal</span>
                 <span className="font-medium text-(--color-main-text)">
                   {currencyFormat(subtotal)}
                 </span>
               </div>
+
+              <label className="grid gap-1 text-sm font-medium text-(--color-main-text)">
+                Discount (LKR)
+                <input
+                  type="number"
+                  min="0"
+                  step="100"
+                  value={manualDiscount}
+                  onChange={(event) => setManualDiscount(event.target.value)}
+                  placeholder="Enter discount amount"
+                  className="h-10 rounded-lg border border-(--color-border) px-3 text-sm text-(--color-main-text) outline-none focus:border-(--color-accent)"
+                />
+              </label>
+
               <div className="flex items-center justify-between">
-                <span className="text-(--color-muted-text)">Tax (5%)</span>
+                <span className="text-(--color-muted-text)">Discount</span>
                 <span className="font-medium text-(--color-main-text)">
-                  {currencyFormat(taxAmount)}
+                  -{currencyFormat(appliedDiscount)}
                 </span>
               </div>
+
               <div className="mt-2 flex items-center justify-between border-t border-(--color-border) pt-2">
                 <span className="font-semibold text-(--color-main-text)">Total</span>
                 <span className="text-lg font-semibold text-(--color-main-text)">

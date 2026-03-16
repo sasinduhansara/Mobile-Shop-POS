@@ -12,6 +12,7 @@ import InventoryPage from '../pages/InventoryPage.jsx'
 import LoginPage from '../pages/LoginPage.jsx'
 import SettingsPage from '../pages/SettingsPage.jsx'
 import SuppliersPage from '../pages/SuppliersPage.jsx'
+import UserProfilePage from '../pages/UserProfilePage.jsx'
 import WarrantyPage from '../pages/WarrantyPage.jsx'
 
 function AppRoutes() {
@@ -33,6 +34,7 @@ function AppRoutes() {
         <Route path="/reports" element={<ReportsPage />} />
         <Route path="/expenses" element={<ExpensesPage />} />
         <Route path="/settings" element={<SettingsPage />} />
+        <Route path="/profile" element={<UserProfilePage />} />
       </Route>
 
       <Route path="*" element={<Navigate to="/dashboard" replace />} />

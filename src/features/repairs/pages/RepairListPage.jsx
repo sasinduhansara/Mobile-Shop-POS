@@ -46,15 +46,24 @@ const DEFAULT_INVOICE_FORM = {
 };
 
 const DEFAULT_PART_USAGE_FORM = {
-  partName: "Screen",
+  partName: "",
   quantity: "1",
   unitCost: "0",
 };
 
 const DEFAULT_RESTOCK_PART_FORM = {
-  partName: "Screen",
+  partName: "",
+  unitCost: "",
   quantity: "1",
   user: "Owner",
+};
+
+const DEFAULT_BILLING_FORM = {
+  repairId: "",
+  partsCost: "0",
+  serviceCharges: "0",
+  paymentMethod: "Cash",
+  warrantyInfo: "30 days service warranty",
 };
 
 const INITIAL_PARTS_INVENTORY = [
@@ -327,26 +336,13 @@ const INITIAL_REPAIRS = [
   },
 ];
 
-const INITIAL_PARTS_MOVEMENTS = [
-  {
-    id: "PM-001",
-    date: "2026-03-11 10:30",
-    productName: "Screen",
-    qtyAdded: 0,
-    qtyRemoved: 1,
-    reason: "repair R-2026-1021",
-    user: "Kamal",
-  },
-  {
-    id: "PM-002",
-    date: "2026-03-09 16:20",
-    productName: "Charging port",
-    qtyAdded: 0,
-    qtyRemoved: 1,
-    reason: "repair R-2026-1019",
-    user: "Kamal",
-  },
-];
+const INITIAL_TECHNICIANS = Array.from(
+  new Set(
+    INITIAL_REPAIRS
+      .map((repair) => repair.technician)
+      .filter((technician) => technician && technician.trim().length > 0),
+  ),
+).sort();
 
 const getTodayString = () => new Date().toISOString().slice(0, 10);
 
@@ -391,20 +387,6 @@ const getStatusBadgeClass = (status) => {
   return "bg-slate-100 text-slate-700";
 };
 
-const getIssueCategory = (problemDescription) => {
-  const text = problemDescription.toLowerCase();
-
-  if (text.includes("screen") || text.includes("display"))
-    return "Screen Issues";
-  if (text.includes("battery")) return "Battery Issues";
-  if (text.includes("charging") || text.includes("port"))
-    return "Charging Issues";
-  if (text.includes("camera")) return "Camera Issues";
-  if (text.includes("speaker") || text.includes("sound")) return "Audio Issues";
-
-  return "Other Issues";
-};
-
 const generateRepairId = () => {
   const rand = Math.floor(Math.random() * 900 + 100);
   return `R-${new Date().getFullYear()}-${rand}`;
@@ -412,8 +394,10 @@ const generateRepairId = () => {
 
 function RepairListPage() {
   const [repairs, setRepairs] = useState(INITIAL_REPAIRS);
+  const [technicianDirectory, setTechnicianDirectory] = useState(
+    INITIAL_TECHNICIANS,
+  );
   const [partsInventory, setPartsInventory] = useState(INITIAL_PARTS_INVENTORY);
-  const [partsMovements, setPartsMovements] = useState(INITIAL_PARTS_MOVEMENTS);
 
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
@@ -426,11 +410,15 @@ function RepairListPage() {
   const [pageSize, setPageSize] = useState(7);
 
   const [isFormOpen, setFormOpen] = useState(false);
+  const [isTechnicianFormOpen, setTechnicianFormOpen] = useState(false);
+  const [isRestockFormOpen, setRestockFormOpen] = useState(false);
+  const [isBillingFormOpen, setBillingFormOpen] = useState(false);
   const [editingRepairId, setEditingRepairId] = useState(null);
   const [repairForm, setRepairForm] = useState(DEFAULT_REPAIR_FORM);
 
   const [detailsRepairId, setDetailsRepairId] = useState(null);
   const [receiptRepairId, setReceiptRepairId] = useState(null);
+  const [billPreviewRepairId, setBillPreviewRepairId] = useState(null);
 
   const [invoiceForm, setInvoiceForm] = useState(DEFAULT_INVOICE_FORM);
   const [attachmentType, setAttachmentType] = useState(ATTACHMENT_TYPES[0]);
@@ -438,21 +426,24 @@ function RepairListPage() {
   const [restockPartForm, setRestockPartForm] = useState(
     DEFAULT_RESTOCK_PART_FORM,
   );
+  const [billingForm, setBillingForm] = useState(DEFAULT_BILLING_FORM);
+  const [newTechnicianName, setNewTechnicianName] = useState("");
 
   const [feedbackMessage, setFeedbackMessage] = useState("");
 
   const debouncedSearch = useDebounce(searchTerm, 250);
 
   const technicians = useMemo(
-    () =>
-      Array.from(
-        new Set(
-          repairs
-            .map((repair) => repair.technician)
-            .filter((technician) => technician && technician.trim().length > 0),
-        ),
-      ).sort(),
-    [repairs],
+    () => {
+      const repairTechnicians = repairs
+        .map((repair) => repair.technician)
+        .filter((technician) => technician && technician.trim().length > 0);
+
+      return Array.from(
+        new Set([...technicianDirectory, ...repairTechnicians]),
+      ).sort();
+    },
+    [repairs, technicianDirectory],
   );
 
   const repairSummary = useMemo(() => {
@@ -504,7 +495,8 @@ function RepairListPage() {
         bucketFilter === "all" ||
         getStatusBucket(repair.status) === bucketFilter;
       const matchesTechnician =
-        technicianFilter === "all" || repair.technician === technicianFilter;
+        technicianFilter === "all" ||
+        repair.technician.toLowerCase() === technicianFilter.toLowerCase();
 
       const matchesFromDate =
         dateFrom.length === 0 || repair.receivedDate >= dateFrom;
@@ -558,45 +550,30 @@ function RepairListPage() {
     () => repairs.find((repair) => repair.id === receiptRepairId) || null,
     [repairs, receiptRepairId],
   );
+  const billPreviewRepair = useMemo(
+    () => repairs.find((repair) => repair.id === billPreviewRepairId) || null,
+    [repairs, billPreviewRepairId],
+  );
 
-  const repairReports = useMemo(() => {
-    const today = getTodayString();
-    const monthPrefix = today.slice(0, 7);
+  const billableRepairs = useMemo(
+    () =>
+      repairs.filter((repair) =>
+        ["Completed", "Delivered"].includes(repair.status),
+      ),
+    [repairs],
+  );
 
-    const dailyRepairs = repairs.filter(
-      (repair) => repair.receivedDate === today,
-    ).length;
-    const monthlyRepairs = repairs.filter((repair) =>
-      repair.receivedDate.startsWith(monthPrefix),
-    ).length;
-
-    const issueMap = new Map();
-    repairs.forEach((repair) => {
-      const issue = getIssueCategory(repair.problemDescription);
-      issueMap.set(issue, (issueMap.get(issue) || 0) + 1);
-    });
-
-    const mostCommonIssues = Array.from(issueMap.entries())
-      .map(([label, count]) => ({ label, count }))
-      .sort((a, b) => b.count - a.count)
-      .slice(0, 5);
-
-    const repairRevenue = repairs
-      .filter((repair) => ["Completed", "Delivered"].includes(repair.status))
-      .reduce((sum, repair) => {
-        if (repair.invoice) {
-          return sum + repair.invoice.totalAmount;
-        }
-        return sum + repair.estimatedCost;
-      }, 0);
-
-    return {
-      dailyRepairs,
-      monthlyRepairs,
-      mostCommonIssues,
-      repairRevenue,
-    };
-  }, [repairs]);
+  const selectedBillingRepair = useMemo(
+    () => repairs.find((repair) => repair.id === billingForm.repairId) || null,
+    [repairs, billingForm.repairId],
+  );
+  const selectedBillingPartsCost = useMemo(() => {
+    if (!selectedBillingRepair) return 0;
+    return selectedBillingRepair.partsUsed.reduce(
+      (sum, part) => sum + part.totalCost,
+      0,
+    );
+  }, [selectedBillingRepair]);
 
   const receiptPreview = useMemo(() => {
     if (!receiptRepair) return "";
@@ -623,16 +600,262 @@ function RepairListPage() {
     ].join("\n");
   }, [receiptRepair]);
 
+  const billPreviewText = useMemo(() => {
+    if (!billPreviewRepair || !billPreviewRepair.invoice) return "";
+
+    const partsLines =
+      billPreviewRepair.partsUsed.length === 0
+        ? ["No parts used"]
+        : billPreviewRepair.partsUsed.map(
+            (part) =>
+              `${part.partName} x${part.quantity} = ${currencyFormat(
+                part.totalCost,
+              )}`,
+          );
+
+    return [
+      "Repair Service Bill",
+      `Ticket ID: ${billPreviewRepair.id}`,
+      `Generated At: ${billPreviewRepair.invoice.generatedAt}`,
+      "",
+      `Customer: ${billPreviewRepair.customerName}`,
+      `Phone: ${billPreviewRepair.customerPhone}`,
+      `Device: ${billPreviewRepair.deviceBrand} ${billPreviewRepair.deviceModel}`,
+      "",
+      "Used Parts:",
+      ...partsLines.map((line) => `- ${line}`),
+      "",
+      `Parts Cost: ${currencyFormat(billPreviewRepair.invoice.partsCost)}`,
+      `Service Charges: ${currencyFormat(billPreviewRepair.invoice.laborCost)}`,
+      `Grand Total: ${currencyFormat(billPreviewRepair.invoice.totalAmount)}`,
+      `Payment Method: ${billPreviewRepair.invoice.paymentMethod}`,
+      `Warranty: ${billPreviewRepair.invoice.warrantyInfo}`,
+      "",
+      SHOP_CONTACT.name,
+      `Phone: ${SHOP_CONTACT.phone}`,
+      SHOP_CONTACT.address,
+    ].join("\n");
+  }, [billPreviewRepair]);
+
   const updateRepairById = (repairId, updater) => {
     setRepairs((prev) =>
       prev.map((repair) => (repair.id === repairId ? updater(repair) : repair)),
     );
   };
 
+  const registerTechnician = (name) => {
+    const normalized = name.trim();
+    if (!normalized) return false;
+
+    const exists = technicians.some(
+      (technician) => technician.toLowerCase() === normalized.toLowerCase(),
+    );
+
+    if (exists) return false;
+
+    setTechnicianDirectory((prev) => [...prev, normalized]);
+    return true;
+  };
+
+  const onAddTechnician = () => {
+    const name = newTechnicianName.trim();
+
+    if (!name) {
+      setFeedbackMessage("Enter technician name.");
+      return false;
+    }
+
+    const added = registerTechnician(name);
+    if (!added) {
+      setFeedbackMessage("Technician already exists.");
+      return false;
+    }
+
+    setNewTechnicianName("");
+    setTechnicianFilter(name);
+    setCurrentPage(1);
+    setFeedbackMessage(`Technician added: ${name}`);
+    return true;
+  };
+
   const onOpenCreateForm = () => {
     setEditingRepairId(null);
     setRepairForm(DEFAULT_REPAIR_FORM);
     setFormOpen(true);
+  };
+
+  const onOpenTechnicianForm = () => {
+    setNewTechnicianName("");
+    setTechnicianFormOpen(true);
+  };
+
+  const onOpenRestockForm = () => {
+    setRestockPartForm(DEFAULT_RESTOCK_PART_FORM);
+    setRestockFormOpen(true);
+  };
+
+  const buildBillingFormFromRepair = (repair) => {
+    const usedPartsTotal = repair.partsUsed.reduce(
+      (sum, part) => sum + part.totalCost,
+      0,
+    );
+
+    return {
+      repairId: repair.id,
+      partsCost: String(repair.invoice?.partsCost ?? usedPartsTotal),
+      serviceCharges: String(repair.invoice?.laborCost ?? 0),
+      paymentMethod: repair.invoice?.paymentMethod || "Cash",
+      warrantyInfo: repair.invoice?.warrantyInfo || "30 days service warranty",
+    };
+  };
+
+  const onOpenBillingForm = () => {
+    if (billableRepairs.length === 0) {
+      setFeedbackMessage("No completed jobs available for billing.");
+      return;
+    }
+
+    setBillingForm(buildBillingFormFromRepair(billableRepairs[0]));
+    setBillingFormOpen(true);
+  };
+
+  const onOpenBillingFormForRepair = (repair) => {
+    if (!["Completed", "Delivered"].includes(repair.status)) {
+      setFeedbackMessage("Select a completed job to generate bill.");
+      return;
+    }
+
+    setBillingForm(buildBillingFormFromRepair(repair));
+    setBillingFormOpen(true);
+  };
+
+  const onBillingRepairChange = (repairId) => {
+    const targetRepair = repairs.find((repair) => repair.id === repairId);
+    if (!targetRepair) return;
+
+    setBillingForm(buildBillingFormFromRepair(targetRepair));
+  };
+
+  const onSubmitTechnicianForm = (event) => {
+    event.preventDefault();
+    const added = onAddTechnician();
+    if (added) {
+      setTechnicianFormOpen(false);
+    }
+  };
+
+  const onSubmitRestockForm = (event) => {
+    event.preventDefault();
+    const restocked = onRestockPart();
+    if (restocked) {
+      setRestockFormOpen(false);
+    }
+  };
+
+  const onSubmitBillingForm = (event) => {
+    event.preventDefault();
+
+    if (!selectedBillingRepair) {
+      setFeedbackMessage("Select a completed repair job for billing.");
+      return;
+    }
+
+    if (!["Completed", "Delivered"].includes(selectedBillingRepair.status)) {
+      setFeedbackMessage("Only completed jobs can be billed.");
+      return;
+    }
+
+    const partsCost = Number(billingForm.partsCost);
+    const serviceCharges = Number(billingForm.serviceCharges);
+
+    if (!Number.isFinite(partsCost) || partsCost < 0) {
+      setFeedbackMessage("Enter a valid parts cost.");
+      return;
+    }
+
+    if (!Number.isFinite(serviceCharges) || serviceCharges < 0) {
+      setFeedbackMessage("Enter a valid service charge.");
+      return;
+    }
+
+    const totalAmount = partsCost + serviceCharges;
+
+    updateRepairById(selectedBillingRepair.id, (repair) => ({
+      ...repair,
+      invoice: {
+        partsCost,
+        laborCost: serviceCharges,
+        totalAmount,
+        paymentMethod: billingForm.paymentMethod,
+        warrantyInfo: billingForm.warrantyInfo.trim(),
+        generatedAt: getDateTimeString(),
+      },
+      history: [
+        {
+          id: `HIS-${Date.now()}`,
+          date: getDateTimeString(),
+          status: repair.status,
+          note: "Final repair bill generated",
+        },
+        ...repair.history,
+      ],
+    }));
+
+    setBillingFormOpen(false);
+    setBillPreviewRepairId(selectedBillingRepair.id);
+    setFeedbackMessage(`Bill generated for ${selectedBillingRepair.id}.`);
+  };
+
+  const onPrintBill = (repair) => {
+    if (!repair || !repair.invoice) return;
+
+    const partsLines =
+      repair.partsUsed.length === 0
+        ? '<tr><td colspan="4" style="padding:8px;border-bottom:1px solid #e5e7eb;">No parts used</td></tr>'
+        : repair.partsUsed
+            .map(
+              (part) =>
+                `<tr><td style="padding:8px;border-bottom:1px solid #e5e7eb;">${part.partName}</td><td style="padding:8px;border-bottom:1px solid #e5e7eb;">${part.quantity}</td><td style="padding:8px;border-bottom:1px solid #e5e7eb;">${currencyFormat(part.unitCost)}</td><td style="padding:8px;border-bottom:1px solid #e5e7eb;">${currencyFormat(part.totalCost)}</td></tr>`,
+            )
+            .join("");
+
+    const printWindow = window.open("", "_blank", "width=980,height=760");
+    if (!printWindow) return;
+
+    printWindow.document.write(`
+      <html>
+        <head>
+          <title>Repair Bill - ${repair.id}</title>
+        </head>
+        <body style="font-family: Arial, sans-serif; padding: 24px; color: #111827;">
+          <h2 style="margin:0 0 8px 0;">Repair Service Bill</h2>
+          <p style="margin:0 0 4px 0;">Ticket: ${repair.id}</p>
+          <p style="margin:0 0 4px 0;">Customer: ${repair.customerName} (${repair.customerPhone})</p>
+          <p style="margin:0 0 12px 0;">Device: ${repair.deviceBrand} ${repair.deviceModel}</p>
+          <table style="width:100%; border-collapse:collapse; font-size:13px; margin-bottom:16px;">
+            <thead>
+              <tr>
+                <th style="text-align:left;padding:8px;border-bottom:1px solid #d1d5db;">Part</th>
+                <th style="text-align:left;padding:8px;border-bottom:1px solid #d1d5db;">Qty</th>
+                <th style="text-align:left;padding:8px;border-bottom:1px solid #d1d5db;">Unit Cost</th>
+                <th style="text-align:left;padding:8px;border-bottom:1px solid #d1d5db;">Total</th>
+              </tr>
+            </thead>
+            <tbody>${partsLines}</tbody>
+          </table>
+          <p style="margin:0 0 6px 0;">Parts Cost: ${currencyFormat(repair.invoice.partsCost)}</p>
+          <p style="margin:0 0 6px 0;">Service Charges: ${currencyFormat(repair.invoice.laborCost)}</p>
+          <p style="margin:0 0 6px 0; font-weight:700;">Grand Total: ${currencyFormat(repair.invoice.totalAmount)}</p>
+          <p style="margin:0 0 6px 0;">Payment Method: ${repair.invoice.paymentMethod}</p>
+          <p style="margin:0 0 6px 0;">Warranty: ${repair.invoice.warrantyInfo}</p>
+          <p style="margin:8px 0 0 0; color:#6b7280;">Generated at: ${repair.invoice.generatedAt}</p>
+        </body>
+      </html>
+    `);
+
+    printWindow.document.close();
+    printWindow.focus();
+    printWindow.print();
   };
 
   const onOpenEditForm = (repair) => {
@@ -686,6 +909,11 @@ function RepairListPage() {
       return;
     }
 
+    const technicianName = repairForm.technician.trim();
+    if (technicianName) {
+      registerTechnician(technicianName);
+    }
+
     if (editingRepairId) {
       updateRepairById(editingRepairId, (repair) => ({
         ...repair,
@@ -699,7 +927,7 @@ function RepairListPage() {
         accessoriesReceived: repairForm.accessoriesReceived.trim(),
         estimatedCost,
         estimatedCompletionDate: repairForm.estimatedCompletionDate,
-        technician: repairForm.technician.trim(),
+        technician: technicianName || "Unassigned",
         repairNotes: repairForm.repairNotes.trim(),
         history: [
           {
@@ -727,7 +955,7 @@ function RepairListPage() {
         accessoriesReceived: repairForm.accessoriesReceived.trim(),
         estimatedCost,
         status: "Received",
-        technician: repairForm.technician.trim() || "Unassigned",
+        technician: technicianName || "Unassigned",
         receivedDate: getTodayString(),
         estimatedCompletionDate: repairForm.estimatedCompletionDate,
         repairNotes: repairForm.repairNotes.trim(),
@@ -772,6 +1000,7 @@ function RepairListPage() {
   };
 
   const onOpenDetails = (repair) => {
+    const firstPart = partsInventory[0];
     setDetailsRepairId(repair.id);
 
     const partsCost = repair.partsUsed.reduce(
@@ -787,9 +1016,9 @@ function RepairListPage() {
     });
 
     setPartUsageForm({
-      partName: INITIAL_PARTS_INVENTORY[0].partName,
+      partName: firstPart?.partName || "",
       quantity: "1",
-      unitCost: String(INITIAL_PARTS_INVENTORY[0].unitCost),
+      unitCost: String(firstPart?.unitCost || 0),
     });
 
     setAttachmentType(ATTACHMENT_TYPES[0]);
@@ -834,6 +1063,11 @@ function RepairListPage() {
 
   const onUsePartForRepair = () => {
     if (!selectedRepair) return;
+    const partName = partUsageForm.partName.trim();
+    if (!partName) {
+      setFeedbackMessage("Select a part to record usage.");
+      return;
+    }
 
     const quantity = Number(partUsageForm.quantity);
     const unitCost = Number(partUsageForm.unitCost);
@@ -849,7 +1083,7 @@ function RepairListPage() {
     }
 
     const targetPart = partsInventory.find(
-      (part) => part.partName === partUsageForm.partName,
+      (part) => part.partName.toLowerCase() === partName.toLowerCase(),
     );
 
     if (!targetPart) {
@@ -894,53 +1128,72 @@ function RepairListPage() {
       ],
     }));
 
-    setPartsMovements((prev) => [
-      {
-        id: `PM-${Date.now()}`,
-        date: getDateTimeString(),
-        productName: targetPart.partName,
-        qtyAdded: 0,
-        qtyRemoved: qtyRounded,
-        reason: `repair ${selectedRepair.id}`,
-        user: selectedRepair.technician || "Technician",
-      },
-      ...prev,
-    ]);
-
     setFeedbackMessage("Part usage recorded and inventory updated.");
   };
 
   const onRestockPart = () => {
+    const partName = restockPartForm.partName.trim();
+    if (!partName) {
+      setFeedbackMessage("Enter a part name to restock.");
+      return false;
+    }
+
     const quantity = Number(restockPartForm.quantity);
     if (!Number.isFinite(quantity) || quantity <= 0) {
       setFeedbackMessage("Enter valid restock quantity.");
-      return;
+      return false;
+    }
+
+    const matchingPart = partsInventory.find(
+      (part) => part.partName.toLowerCase() === partName.toLowerCase(),
+    );
+
+    const unitCostInput = restockPartForm.unitCost.trim();
+    let unitCost = matchingPart?.unitCost ?? 0;
+
+    if (unitCostInput.length > 0) {
+      unitCost = Number(unitCostInput);
+    }
+
+    if (!matchingPart && unitCostInput.length === 0) {
+      setFeedbackMessage("Enter unit cost when adding a new part.");
+      return false;
+    }
+
+    if (!Number.isFinite(unitCost) || unitCost < 0) {
+      setFeedbackMessage("Enter a valid part unit cost.");
+      return false;
     }
 
     const qtyRounded = Math.round(quantity);
 
-    setPartsInventory((prev) =>
-      prev.map((part) =>
-        part.partName === restockPartForm.partName
-          ? { ...part, stock: part.stock + qtyRounded }
-          : part,
-      ),
-    );
+    const resolvedPartName = matchingPart?.partName || partName;
 
-    setPartsMovements((prev) => [
-      {
-        id: `PM-${Date.now()}`,
-        date: getDateTimeString(),
-        productName: restockPartForm.partName,
-        qtyAdded: qtyRounded,
-        qtyRemoved: 0,
-        reason: "parts restock",
-        user: restockPartForm.user || "Owner",
-      },
+    setPartsInventory((prev) => {
+      if (matchingPart) {
+        return prev.map((part) =>
+          part.partName.toLowerCase() === partName.toLowerCase()
+            ? { ...part, stock: part.stock + qtyRounded, unitCost }
+            : part,
+        );
+      }
+
+      return [{ partName: resolvedPartName, stock: qtyRounded, unitCost }, ...prev];
+    });
+
+    setRestockPartForm((prev) => ({
       ...prev,
-    ]);
+      partName: matchingPart ? resolvedPartName : "",
+      unitCost: matchingPart ? String(unitCost) : "",
+      quantity: "1",
+    }));
 
-    setFeedbackMessage("Parts inventory restocked.");
+    setFeedbackMessage(
+      matchingPart
+        ? "Parts inventory restocked."
+        : "New spare part added and stock updated.",
+    );
+    return true;
   };
 
   const onAttachmentUpload = (event) => {
@@ -1017,13 +1270,36 @@ function RepairListPage() {
             </p>
           </div>
 
-          <button
-            type="button"
-            onClick={onOpenCreateForm}
-            className="h-10 rounded-lg bg-(--color-main-text) px-4 text-sm font-medium text-white"
-          >
-            Create Repair Ticket
-          </button>
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={onOpenTechnicianForm}
+              className="h-10 rounded-lg border border-(--color-border) px-4 text-sm font-medium text-(--color-main-text)"
+            >
+              Add Technician
+            </button>
+            <button
+              type="button"
+              onClick={onOpenRestockForm}
+              className="h-10 rounded-lg border border-(--color-border) px-4 text-sm font-medium text-(--color-main-text)"
+            >
+              Add Stock
+            </button>
+            <button
+              type="button"
+              onClick={onOpenBillingForm}
+              className="h-10 rounded-lg border border-(--color-border) px-4 text-sm font-medium text-(--color-main-text)"
+            >
+              Generate Bill
+            </button>
+            <button
+              type="button"
+              onClick={onOpenCreateForm}
+              className="h-10 rounded-lg bg-(--color-main-text) px-4 text-sm font-medium text-white"
+            >
+              Create Repair Ticket
+            </button>
+          </div>
         </div>
       </section>
 
@@ -1199,6 +1475,7 @@ function RepairListPage() {
             />
           </label>
         </div>
+
       </section>
 
       <section className="rounded-2xl border border-(--color-border) bg-(--color-surface) p-4 shadow-sm">
@@ -1272,6 +1549,15 @@ function RepairListPage() {
                       >
                         Edit
                       </button>
+                      {["Completed", "Delivered"].includes(repair.status) && (
+                        <button
+                          type="button"
+                          onClick={() => onOpenBillingFormForRepair(repair)}
+                          className="rounded-lg border border-(--color-border) px-2 py-1 text-xs"
+                        >
+                          Bill
+                        </button>
+                      )}
                       <button
                         type="button"
                         onClick={() => onPrintReceipt(repair.id)}
@@ -1359,7 +1645,7 @@ function RepairListPage() {
         </div>
       </section>
 
-      <section className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1.25fr)_minmax(0,1fr)]">
+      <section className="min-w-0">
         <article className="min-w-0 rounded-2xl border border-(--color-border) bg-(--color-surface) p-4 shadow-sm">
           <h3 className="text-base font-semibold text-(--color-main-text)">
             Parts Usage Tracking
@@ -1386,175 +1672,363 @@ function RepairListPage() {
             ))}
           </div>
 
-          <div className="mt-4 rounded-lg border border-(--color-border) bg-(--color-surface) p-3">
-            <p className="text-sm font-medium text-(--color-main-text)">
-              Restock Spare Parts
-            </p>
-            <div className="mt-2 grid min-w-0 gap-2 sm:grid-cols-3">
-              <select
-                value={restockPartForm.partName}
-                onChange={(event) =>
-                  setRestockPartForm((prev) => ({
-                    ...prev,
-                    partName: event.target.value,
-                  }))
-                }
-                className="h-9 w-full min-w-0 rounded-lg border border-(--color-border) px-2 text-sm"
-              >
-                {partsInventory.map((part) => (
-                  <option key={part.partName} value={part.partName}>
-                    {part.partName}
-                  </option>
-                ))}
-              </select>
-
-              <input
-                value={restockPartForm.quantity}
-                onChange={(event) =>
-                  setRestockPartForm((prev) => ({
-                    ...prev,
-                    quantity: event.target.value,
-                  }))
-                }
-                placeholder="Qty"
-                className="h-9 w-full min-w-0 rounded-lg border border-(--color-border) px-2 text-sm"
-              />
-
-              <button
-                type="button"
-                onClick={onRestockPart}
-                className="h-9 w-full rounded-lg bg-(--color-accent) px-3 text-sm font-medium text-(--color-on-accent)"
-              >
-                Add Stock
-              </button>
-            </div>
-          </div>
-
-          <h4 className="mt-4 text-sm font-semibold text-(--color-main-text)">
-            Parts Movement History
-          </h4>
-          <div className="mt-2 space-y-2 sm:hidden">
-            {partsMovements.slice(0, 12).map((movement) => (
-              <article
-                key={movement.id}
-                className="rounded-lg border border-(--color-border) bg-(--color-surface) p-3 text-sm"
-              >
-                <p className="font-medium text-(--color-main-text)">
-                  {movement.productName}
-                </p>
-                <p className="mt-1 text-xs text-(--color-muted-text)">
-                  {movement.date}
-                </p>
-                <div className="mt-2 grid grid-cols-2 gap-2 text-xs">
-                  <p className="text-(--color-muted-text)">Qty Added</p>
-                  <p className="text-right text-emerald-700">
-                    {movement.qtyAdded > 0 ? `+${movement.qtyAdded}` : "-"}
-                  </p>
-                  <p className="text-(--color-muted-text)">Qty Removed</p>
-                  <p className="text-right text-rose-700">
-                    {movement.qtyRemoved > 0 ? `-${movement.qtyRemoved}` : "-"}
-                  </p>
-                  <p className="text-(--color-muted-text)">Reason</p>
-                  <p className="text-right text-(--color-main-text)">
-                    {movement.reason}
-                  </p>
-                  <p className="text-(--color-muted-text)">User</p>
-                  <p className="text-right text-(--color-main-text)">
-                    {movement.user}
-                  </p>
-                </div>
-              </article>
-            ))}
-          </div>
-
-          <div className="mt-2 hidden overflow-x-auto sm:block">
-            <table className="w-full min-w-full text-sm">
-              <thead>
-                <tr className="text-left text-xs uppercase tracking-[0.08em] text-(--color-muted-text)">
-                  <th className="pb-2">Date</th>
-                  <th className="pb-2">Product Name</th>
-                  <th className="pb-2">Quantity Added</th>
-                  <th className="pb-2">Quantity Removed</th>
-                  <th className="pb-2">Reason</th>
-                  <th className="pb-2">User</th>
-                </tr>
-              </thead>
-              <tbody>
-                {partsMovements.slice(0, 12).map((movement) => (
-                  <tr
-                    key={movement.id}
-                    className="border-t border-(--color-border)"
-                  >
-                    <td className="whitespace-nowrap py-2 align-top">
-                      {movement.date}
-                    </td>
-                    <td className="py-2 align-top">{movement.productName}</td>
-                    <td className="py-2 align-top text-emerald-700">
-                      {movement.qtyAdded > 0 ? `+${movement.qtyAdded}` : "-"}
-                    </td>
-                    <td className="py-2 align-top text-rose-700">
-                      {movement.qtyRemoved > 0
-                        ? `-${movement.qtyRemoved}`
-                        : "-"}
-                    </td>
-                    <td className="py-2 align-top">{movement.reason}</td>
-                    <td className="py-2 align-top">{movement.user}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </article>
-
-        <article className="rounded-2xl border border-(--color-border) bg-(--color-surface) p-4 shadow-sm">
-          <h3 className="text-base font-semibold text-(--color-main-text)">
-            Repair Reports
-          </h3>
-
-          <div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
-            <div className="rounded-lg border border-(--color-border) bg-(--color-surface) p-3">
-              <p className="text-xs uppercase tracking-[0.08em] text-(--color-muted-text)">
-                Daily Repairs
-              </p>
-              <p className="mt-1 text-xl font-semibold text-(--color-main-text)">
-                {repairReports.dailyRepairs}
-              </p>
-            </div>
-
-            <div className="rounded-lg border border-(--color-border) bg-(--color-surface) p-3">
-              <p className="text-xs uppercase tracking-[0.08em] text-(--color-muted-text)">
-                Monthly Repairs
-              </p>
-              <p className="mt-1 text-xl font-semibold text-(--color-main-text)">
-                {repairReports.monthlyRepairs}
-              </p>
-            </div>
-
-            <div className="rounded-lg border border-(--color-border) bg-(--color-surface) p-3">
-              <p className="text-xs uppercase tracking-[0.08em] text-(--color-muted-text)">
-                Repair Revenue
-              </p>
-              <p className="mt-1 text-xl font-semibold text-(--color-main-text)">
-                {currencyFormat(repairReports.repairRevenue)}
-              </p>
-            </div>
-
-            <div className="rounded-lg border border-(--color-border) bg-(--color-surface) p-3">
-              <p className="text-xs uppercase tracking-[0.08em] text-(--color-muted-text)">
-                Most Common Issues
-              </p>
-
-              <ul className="mt-2 space-y-1 text-sm text-(--color-main-text)">
-                {repairReports.mostCommonIssues.map((issue) => (
-                  <li key={issue.label}>
-                    {issue.label} • {issue.count}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          </div>
+          <p className="mt-4 text-xs text-(--color-muted-text)">
+            Use the <span className="font-medium">Add Stock</span> button at the
+            top to restock existing parts or add new spare parts.
+          </p>
         </article>
       </section>
+
+      {isTechnicianFormOpen && (
+        <div className="fixed inset-0 z-40 bg-black/40 p-4">
+          <div className="mx-auto w-full max-w-lg rounded-2xl border border-(--color-border) bg-(--color-surface) p-5 shadow-xl">
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg font-semibold text-(--color-main-text)">
+                Add Technician
+              </h3>
+              <button
+                type="button"
+                onClick={() => setTechnicianFormOpen(false)}
+                className="rounded-lg border border-(--color-border) px-3 py-1 text-sm"
+              >
+                Close
+              </button>
+            </div>
+
+            <form onSubmit={onSubmitTechnicianForm} className="mt-4 space-y-3">
+              <label className="grid gap-1 text-sm font-medium">
+                Technician Name
+                <input
+                  value={newTechnicianName}
+                  onChange={(event) => setNewTechnicianName(event.target.value)}
+                  placeholder="Enter technician name"
+                  className="h-10 rounded-lg border border-(--color-border) px-3"
+                />
+              </label>
+
+              <div className="flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setTechnicianFormOpen(false)}
+                  className="h-10 rounded-lg border border-(--color-border) px-4 text-sm"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="h-10 rounded-lg bg-(--color-accent) px-4 text-sm font-medium text-(--color-on-accent)"
+                >
+                  Add Technician
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {isRestockFormOpen && (
+        <div className="fixed inset-0 z-40 bg-black/40 p-4">
+          <div className="mx-auto w-full max-w-2xl rounded-2xl border border-(--color-border) bg-(--color-surface) p-5 shadow-xl">
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg font-semibold text-(--color-main-text)">
+                Add Stock
+              </h3>
+              <button
+                type="button"
+                onClick={() => setRestockFormOpen(false)}
+                className="rounded-lg border border-(--color-border) px-3 py-1 text-sm"
+              >
+                Close
+              </button>
+            </div>
+
+            <form
+              onSubmit={onSubmitRestockForm}
+              className="mt-4 grid gap-3 sm:grid-cols-2"
+            >
+              <label className="grid gap-1 text-sm font-medium">
+                Part Name
+                <input
+                  list="parts-inventory-options-modal"
+                  value={restockPartForm.partName}
+                  onChange={(event) =>
+                    setRestockPartForm((prev) => ({
+                      ...prev,
+                      partName: event.target.value,
+                      unitCost:
+                        partsInventory.find(
+                          (part) =>
+                            part.partName.toLowerCase() ===
+                            event.target.value.trim().toLowerCase(),
+                        )?.unitCost?.toString() || prev.unitCost,
+                    }))
+                  }
+                  placeholder="Part name (new/existing)"
+                  className="h-10 rounded-lg border border-(--color-border) px-3"
+                />
+                <datalist id="parts-inventory-options-modal">
+                  {partsInventory.map((part) => (
+                    <option key={part.partName} value={part.partName} />
+                  ))}
+                </datalist>
+              </label>
+
+              <label className="grid gap-1 text-sm font-medium">
+                Unit Cost
+                <input
+                  value={restockPartForm.unitCost}
+                  onChange={(event) =>
+                    setRestockPartForm((prev) => ({
+                      ...prev,
+                      unitCost: event.target.value,
+                    }))
+                  }
+                  placeholder="Unit cost"
+                  className="h-10 rounded-lg border border-(--color-border) px-3"
+                />
+              </label>
+
+              <label className="grid gap-1 text-sm font-medium">
+                Quantity
+                <input
+                  value={restockPartForm.quantity}
+                  onChange={(event) =>
+                    setRestockPartForm((prev) => ({
+                      ...prev,
+                      quantity: event.target.value,
+                    }))
+                  }
+                  placeholder="Qty"
+                  className="h-10 rounded-lg border border-(--color-border) px-3"
+                />
+              </label>
+
+              <label className="grid gap-1 text-sm font-medium">
+                Restock By
+                <input
+                  value={restockPartForm.user}
+                  onChange={(event) =>
+                    setRestockPartForm((prev) => ({
+                      ...prev,
+                      user: event.target.value,
+                    }))
+                  }
+                  placeholder="Owner / Technician"
+                  className="h-10 rounded-lg border border-(--color-border) px-3"
+                />
+              </label>
+
+              <p className="sm:col-span-2 text-xs text-(--color-muted-text)">
+                Existing part නම් stock එක increase වෙනවා. New part name type
+                කලොත් inventory එකට අලුත් spare part එකක් add වෙනවා.
+              </p>
+
+              <div className="sm:col-span-2 flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setRestockFormOpen(false)}
+                  className="h-10 rounded-lg border border-(--color-border) px-4 text-sm"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="h-10 rounded-lg bg-(--color-accent) px-4 text-sm font-medium text-(--color-on-accent)"
+                >
+                  Add Stock
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {isBillingFormOpen && (
+        <div className="fixed inset-0 z-40 bg-black/40 p-4">
+          <div className="mx-auto max-h-[92vh] w-full max-w-3xl overflow-y-auto rounded-2xl border border-(--color-border) bg-(--color-surface) p-5 shadow-xl">
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg font-semibold text-(--color-main-text)">
+                Generate Repair Bill
+              </h3>
+              <button
+                type="button"
+                onClick={() => setBillingFormOpen(false)}
+                className="rounded-lg border border-(--color-border) px-3 py-1 text-sm"
+              >
+                Close
+              </button>
+            </div>
+
+            <form
+              onSubmit={onSubmitBillingForm}
+              className="mt-4 grid gap-3 sm:grid-cols-2"
+            >
+              <label className="sm:col-span-2 grid gap-1 text-sm font-medium">
+                Select Completed Job
+                <select
+                  value={billingForm.repairId}
+                  onChange={(event) => onBillingRepairChange(event.target.value)}
+                  className="h-10 rounded-lg border border-(--color-border) px-3 text-sm"
+                >
+                  {billableRepairs.map((repair) => (
+                    <option key={repair.id} value={repair.id}>
+                      {repair.id} - {repair.customerName} ({repair.status})
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              {selectedBillingRepair && (
+                <div className="sm:col-span-2 rounded-lg border border-(--color-border) bg-(--color-menu-btn-hover) p-3 text-sm">
+                  <p>
+                    Customer: {selectedBillingRepair.customerName} •{" "}
+                    {selectedBillingRepair.customerPhone}
+                  </p>
+                  <p className="mt-1">
+                    Device: {selectedBillingRepair.deviceBrand}{" "}
+                    {selectedBillingRepair.deviceModel}
+                  </p>
+                  <p className="mt-1">
+                    Status: <span className="font-medium">{selectedBillingRepair.status}</span>
+                  </p>
+                </div>
+              )}
+
+              <div className="sm:col-span-2 rounded-lg border border-(--color-border) p-3">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <p className="text-sm font-medium text-(--color-main-text)">
+                    Used Parts
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setBillingForm((prev) => ({
+                        ...prev,
+                        partsCost: String(selectedBillingPartsCost),
+                      }))
+                    }
+                    className="rounded-lg border border-(--color-border) px-3 py-1 text-xs"
+                  >
+                    Use Parts Total
+                  </button>
+                </div>
+                <ul className="mt-2 space-y-1 text-sm">
+                  {selectedBillingRepair?.partsUsed.length ? (
+                    selectedBillingRepair.partsUsed.map((part, index) => (
+                      <li
+                        key={`${part.partName}-${part.usedAt}-${index}`}
+                        className="flex items-center justify-between gap-2 text-(--color-main-text)"
+                      >
+                        <span>
+                          {part.partName} x{part.quantity}
+                        </span>
+                        <span>{currencyFormat(part.totalCost)}</span>
+                      </li>
+                    ))
+                  ) : (
+                    <li className="text-(--color-muted-text)">No parts used.</li>
+                  )}
+                </ul>
+                <p className="mt-2 text-xs text-(--color-muted-text)">
+                  Auto parts total: {currencyFormat(selectedBillingPartsCost)}
+                </p>
+              </div>
+
+              <label className="grid gap-1 text-sm font-medium">
+                Parts Cost
+                <input
+                  value={billingForm.partsCost}
+                  onChange={(event) =>
+                    setBillingForm((prev) => ({
+                      ...prev,
+                      partsCost: event.target.value,
+                    }))
+                  }
+                  className="h-10 rounded-lg border border-(--color-border) px-3"
+                />
+              </label>
+
+              <label className="grid gap-1 text-sm font-medium">
+                Service Charges
+                <input
+                  value={billingForm.serviceCharges}
+                  onChange={(event) =>
+                    setBillingForm((prev) => ({
+                      ...prev,
+                      serviceCharges: event.target.value,
+                    }))
+                  }
+                  className="h-10 rounded-lg border border-(--color-border) px-3"
+                />
+              </label>
+
+              <label className="grid gap-1 text-sm font-medium">
+                Payment Method
+                <select
+                  value={billingForm.paymentMethod}
+                  onChange={(event) =>
+                    setBillingForm((prev) => ({
+                      ...prev,
+                      paymentMethod: event.target.value,
+                    }))
+                  }
+                  className="h-10 rounded-lg border border-(--color-border) px-3 text-sm"
+                >
+                  {PAYMENT_METHODS.map((method) => (
+                    <option key={method} value={method}>
+                      {method}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <label className="grid gap-1 text-sm font-medium">
+                Warranty Information
+                <input
+                  value={billingForm.warrantyInfo}
+                  onChange={(event) =>
+                    setBillingForm((prev) => ({
+                      ...prev,
+                      warrantyInfo: event.target.value,
+                    }))
+                  }
+                  className="h-10 rounded-lg border border-(--color-border) px-3"
+                />
+              </label>
+
+              <div className="sm:col-span-2 rounded-lg border border-(--color-border) bg-(--color-menu-btn-hover) px-3 py-2 text-sm">
+                Grand Total:{" "}
+                <span className="font-semibold text-(--color-main-text)">
+                  {currencyFormat(
+                    (Number.isFinite(Number(billingForm.partsCost))
+                      ? Number(billingForm.partsCost)
+                      : 0) +
+                      (Number.isFinite(Number(billingForm.serviceCharges))
+                        ? Number(billingForm.serviceCharges)
+                        : 0),
+                  )}
+                </span>
+              </div>
+
+              <div className="sm:col-span-2 flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={() => setBillingFormOpen(false)}
+                  className="h-10 rounded-lg border border-(--color-border) px-4 text-sm"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="h-10 rounded-lg bg-(--color-accent) px-4 text-sm font-medium text-(--color-on-accent)"
+                >
+                  Generate Bill
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {isFormOpen && (
         <div className="fixed inset-0 z-40 bg-black/40 p-4">
@@ -1637,10 +2111,17 @@ function RepairListPage() {
                 Technician Assignment
                 <input
                   name="technician"
+                  list="technician-options"
                   value={repairForm.technician}
                   onChange={onRepairFormChange}
+                  placeholder="Select or type technician"
                   className="h-10 rounded-lg border border-(--color-border) px-3"
                 />
+                <datalist id="technician-options">
+                  {technicians.map((technician) => (
+                    <option key={technician} value={technician} />
+                  ))}
+                </datalist>
               </label>
 
               <label className="grid gap-1 text-sm font-medium">
@@ -1748,6 +2229,39 @@ function RepairListPage() {
             <pre className="mt-4 max-h-[65vh] overflow-auto rounded-xl border border-(--color-border) bg-(--color-menu-btn-hover) p-4 text-xs leading-6 text-(--color-main-text)">
               {receiptPreview}
             </pre>
+          </div>
+        </div>
+      )}
+
+      {billPreviewRepair && billPreviewRepair.invoice && (
+        <div className="fixed inset-0 z-40 bg-black/40 p-4">
+          <div className="mx-auto w-full max-w-2xl rounded-2xl border border-(--color-border) bg-(--color-surface) p-5 shadow-xl">
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg font-semibold text-(--color-main-text)">
+                Repair Bill Preview
+              </h3>
+              <button
+                type="button"
+                onClick={() => setBillPreviewRepairId(null)}
+                className="rounded-lg border border-(--color-border) px-3 py-1 text-sm"
+              >
+                Close
+              </button>
+            </div>
+
+            <pre className="mt-4 max-h-[65vh] overflow-auto rounded-xl border border-(--color-border) bg-(--color-menu-btn-hover) p-4 text-xs leading-6 text-(--color-main-text)">
+              {billPreviewText}
+            </pre>
+
+            <div className="mt-4 flex justify-end">
+              <button
+                type="button"
+                onClick={() => onPrintBill(billPreviewRepair)}
+                className="h-10 rounded-lg bg-(--color-accent) px-4 text-sm font-medium text-(--color-on-accent)"
+              >
+                Print Bill
+              </button>
+            </div>
           </div>
         </div>
       )}

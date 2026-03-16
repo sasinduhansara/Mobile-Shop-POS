@@ -69,95 +69,6 @@ const topSellingProducts = [
   },
 ];
 
-const recentTransactions = [
-  {
-    id: "TXN-1048",
-    customer: "N. Fernando",
-    amount: "LKR 186,000",
-    method: "Card",
-    status: "Paid",
-  },
-  {
-    id: "TXN-1047",
-    customer: "P. Silva",
-    amount: "LKR 12,500",
-    method: "Cash",
-    status: "Paid",
-  },
-  {
-    id: "TXN-1046",
-    customer: "A. Perera",
-    amount: "LKR 8,200",
-    method: "QR",
-    status: "Pending",
-  },
-  {
-    id: "TXN-1045",
-    customer: "S. Jayasuriya",
-    amount: "LKR 44,900",
-    method: "Card",
-    status: "Paid",
-  },
-];
-
-const recentSales = [
-  {
-    invoice: "INV-562",
-    customer: "K. Deen",
-    total: "LKR 244,000",
-    time: "10:42 AM",
-  },
-  {
-    invoice: "INV-561",
-    customer: "R. Gamage",
-    total: "LKR 39,500",
-    time: "10:18 AM",
-  },
-  {
-    invoice: "INV-560",
-    customer: "M. Nawaz",
-    total: "LKR 18,000",
-    time: "09:56 AM",
-  },
-  {
-    invoice: "INV-559",
-    customer: "D. Kalan",
-    total: "LKR 9,900",
-    time: "09:37 AM",
-  },
-];
-
-const recentRepairs = [
-  {
-    jobId: "REP-228",
-    device: "iPhone 13",
-    issue: "Display replacement",
-    status: "In Progress",
-    eta: "Today 5:30 PM",
-  },
-  {
-    jobId: "REP-227",
-    device: "Samsung S21",
-    issue: "Battery issue",
-    status: "Pending",
-    eta: "Tomorrow",
-  },
-  {
-    jobId: "REP-226",
-    device: "Redmi Note 12",
-    issue: "Charging port",
-    status: "Completed",
-    eta: "Ready",
-  },
-  {
-    jobId: "REP-225",
-    device: "iPad Air",
-    issue: "Speaker issue",
-    status: "In Progress",
-    eta: "Tue",
-  },
-];
-
 const warrantyExpiringSoon = [
   {
     customer: "K. Fernando",
@@ -179,17 +90,6 @@ const toneClassMap = {
   up: "text-emerald-600",
   down: "text-rose-600",
   neutral: "text-(--color-muted-text)",
-};
-
-const paymentStatusClasses = {
-  Paid: "bg-emerald-100 text-emerald-700",
-  Pending: "bg-amber-100 text-amber-700",
-};
-
-const repairStatusClasses = {
-  Pending: "bg-amber-100 text-amber-700",
-  "In Progress": "bg-sky-100 text-sky-700",
-  Completed: "bg-emerald-100 text-emerald-700",
 };
 
 const warrantyLevelClasses = {
@@ -391,75 +291,7 @@ function DashboardPage() {
         </div>
       </section>
 
-      <section className="grid gap-4 xl:grid-cols-3">
-        <article className={panelClassName}>
-          <h3 className="text-base font-semibold text-(--color-main-text)">
-            Recent Transactions
-          </h3>
-          <ul className="mt-4 space-y-3">
-            {recentTransactions.map((transaction) => (
-              <li
-                key={transaction.id}
-                className="rounded-xl border border-(--color-border) bg-(--color-surface) p-3"
-              >
-                <div className="flex items-center justify-between gap-3">
-                  <p className="text-sm font-semibold text-(--color-main-text)">
-                    {transaction.customer}
-                  </p>
-                  <span
-                    className={`rounded-full px-2.5 py-1 text-xs font-medium ${
-                      paymentStatusClasses[transaction.status] ||
-                      "bg-slate-100 text-slate-700"
-                    }`}
-                  >
-                    {transaction.status}
-                  </span>
-                </div>
-                <p className="mt-1 text-xs text-(--color-muted-text)">
-                  {transaction.id} • {transaction.method}
-                </p>
-                <p className="mt-1 text-sm font-semibold text-(--color-main-text)">
-                  {transaction.amount}
-                </p>
-              </li>
-            ))}
-          </ul>
-        </article>
-
-        <article className={panelClassName}>
-          <h3 className="text-base font-semibold text-(--color-main-text)">
-            Recent Repairs
-          </h3>
-          <ul className="mt-4 space-y-3">
-            {recentRepairs.map((repair) => (
-              <li
-                key={repair.jobId}
-                className="rounded-xl border border-(--color-border) bg-(--color-surface) p-3"
-              >
-                <div className="flex items-center justify-between gap-3">
-                  <p className="text-sm font-semibold text-(--color-main-text)">
-                    {repair.device}
-                  </p>
-                  <span
-                    className={`rounded-full px-2.5 py-1 text-xs font-medium ${
-                      repairStatusClasses[repair.status] ||
-                      "bg-slate-100 text-slate-700"
-                    }`}
-                  >
-                    {repair.status}
-                  </span>
-                </div>
-                <p className="mt-1 text-xs text-(--color-muted-text)">
-                  {repair.issue}
-                </p>
-                <p className="mt-1 text-xs font-medium text-(--color-muted-text)">
-                  ETA: {repair.eta}
-                </p>
-              </li>
-            ))}
-          </ul>
-        </article>
-
+      <section className="grid gap-4 xl:grid-cols-1">
         <article className={panelClassName}>
           <h3 className="text-base font-semibold text-(--color-main-text)">
             Warranty Expiring Soon
@@ -495,7 +327,7 @@ function DashboardPage() {
         </article>
       </section>
 
-      <section className="grid min-w-0 gap-4 xl:grid-cols-3">
+      <section className="grid min-w-0 gap-4 xl:grid-cols-1">
         <article className={`${panelClassName} min-w-0`}>
           <h3 className="text-base font-semibold text-(--color-main-text)">
             Top Selling Products
@@ -563,113 +395,6 @@ function DashboardPage() {
           </div>
         </article>
 
-        <article className={`${panelClassName} min-w-0`}>
-          <h3 className="text-base font-semibold text-(--color-main-text)">
-            Recent Sales
-          </h3>
-          <ul className="mt-4 space-y-3">
-            {recentSales.map((sale) => (
-              <li
-                key={sale.invoice}
-                className="rounded-xl border border-(--color-border) bg-(--color-surface) p-3"
-              >
-                <div className="flex items-center justify-between gap-3">
-                  <p className="text-sm font-semibold text-(--color-main-text)">
-                    {sale.invoice}
-                  </p>
-                  <p className="text-xs text-(--color-muted-text)">
-                    {sale.time}
-                  </p>
-                </div>
-                <p className="mt-1 text-xs text-(--color-muted-text)">
-                  {sale.customer}
-                </p>
-                <p className="mt-1 text-sm font-semibold text-(--color-main-text)">
-                  {sale.total}
-                </p>
-              </li>
-            ))}
-          </ul>
-        </article>
-
-        <article className={`${panelClassName} min-w-0`}>
-          <h3 className="text-base font-semibold text-(--color-main-text)">
-            Recent Repairs
-          </h3>
-
-          <ul className="mt-4 space-y-3 sm:hidden">
-            {recentRepairs.map((repair) => (
-              <li
-                key={`${repair.jobId}-mobile`}
-                className="rounded-xl border border-(--color-border) bg-(--color-surface) p-3"
-              >
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <p className="font-medium text-(--color-main-text)">
-                      {repair.jobId}
-                    </p>
-                    <p className="truncate text-xs text-(--color-muted-text)">
-                      {repair.device}
-                    </p>
-                  </div>
-                  <span
-                    className={`rounded-full px-2.5 py-1 text-xs font-medium ${
-                      repairStatusClasses[repair.status] ||
-                      "bg-slate-100 text-slate-700"
-                    }`}
-                  >
-                    {repair.status}
-                  </span>
-                </div>
-                <p className="mt-2 text-xs font-medium text-(--color-muted-text)">
-                  ETA: {repair.eta}
-                </p>
-              </li>
-            ))}
-          </ul>
-
-          <div className="mt-4 hidden overflow-x-auto sm:block">
-            <table className="w-full min-w-130 text-sm">
-              <thead>
-                <tr className="text-left text-xs uppercase tracking-[0.08em] text-(--color-muted-text)">
-                  <th className="pb-2">Job</th>
-                  <th className="pb-2">Status</th>
-                  <th className="pb-2">ETA</th>
-                </tr>
-              </thead>
-              <tbody>
-                {recentRepairs.map((repair) => (
-                  <tr
-                    key={`${repair.jobId}-table`}
-                    className="border-t border-(--color-border)"
-                  >
-                    <td className="py-2.5 pr-3">
-                      <p className="font-medium text-(--color-main-text)">
-                        {repair.jobId}
-                      </p>
-                      <p className="text-xs text-(--color-muted-text)">
-                        {repair.device}
-                      </p>
-                    </td>
-                    <td className="py-2.5">
-                      <span
-                        className={`rounded-full px-2.5 py-1 text-xs font-medium ${
-                          repairStatusClasses[repair.status] ||
-                          "bg-slate-100 text-slate-700"
-                        }`}
-                      >
-                        {repair.status}
-                      </span>
-                    </td>
-                    <td className="whitespace-nowrap py-2.5 text-(--color-main-text)">
-                      {repair.eta}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </article>
       </section>
     </div>
   );
